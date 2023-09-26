@@ -12,12 +12,22 @@ uint8_t publicKey[PUBLIC_KEY_SIZE];
 Servo myservo;
 
 void HandShake() {
-  String elsalla = "Public Key: ";
+  String elsalla ;
   for (int i = 0; i < PUBLIC_KEY_SIZE; i++) {
     if (publicKey[i] < 16) {
       elsalla += '0';
     }
     elsalla += String(publicKey[i], HEX);
+  }
+  Serial.println(elsalla);
+}
+void HandShake0() {
+  String elsalla = "Private Key: ";
+  for (int i = 0; i < PRIVATE_KEY_SIZE; i++) {
+    if (privateKey[i] < 16) {
+      elsalla += '0';
+    }
+    elsalla += String(privateKey[i], HEX);
   }
   Serial.println(elsalla);
 }
@@ -59,6 +69,9 @@ void loop() {
     if (command == 'H') {
       HandShake();
     }
+    if (command == 'P') {
+      HandShake0();
+    }
     if (command == 'S') {
       delay(50);
       String posStr = "";
@@ -89,7 +102,16 @@ void loop() {
         }
         signatureString += String(signature[i], HEX);
       }
-      Serial.print("İmza sonucu:" + signatureString);
+      
+      Serial.print(signatureString);
+
+      // // Doğrulama
+      // bool isValid = Ed25519::verify(signature, publicKey, mesaj.c_str(), mesaj.length());
+      // if (isValid) {
+      //   Serial.println(" Valid signature!");
+      // } else {
+      //   Serial.println(" Invalid signature!");
+      // }
     }
   }
 }
