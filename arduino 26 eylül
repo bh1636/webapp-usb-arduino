@@ -1,88 +1,28 @@
-#include <AES.h>
-#include <AuthenticatedCipher.h>
-#include <BLAKE2b.h>
-#include <BLAKE2s.h>
-#include <BigNumberUtil.h>
-#include <BlockCipher.h>
-#include <CTR.h>
-#include <ChaCha.h>
-#include <ChaChaPoly.h>
-#include <Cipher.h>
-#include <Crypto.h>
-#include <Curve25519.h>
-#include <EAX.h>
+#include <EEPROM.h>
 #include <Ed25519.h>
-#include <GCM.h>
-#include <GF128.h>
-#include <GHASH.h>
-#include <HKDF.h>
-#include <Hash.h>
-#include <KeccakCore.h>
-#include <NoiseSource.h>
-#include <OMAC.h>
-#include <P521.h>
-#include <Poly1305.h>
-#include <RNG.h>
-#include <SHA224.h>
-#include <SHA256.h>
-#include <SHA3.h>
-#include <SHA384.h>
-#include <SHA512.h>
-#include <SHAKE.h>
-#include <XOF.h>
-#include <XTS.h>
-
-#include <SoftwareSerial.h> // TX RX software library for bluetooth
-
-
-
-//Yukarısı dursun nolur nolmazlar
-
-
-
-
-
-#include <Servo.h> // servo library 
-Servo myservo; // servo name
-#include <EEPROM.h> // Güvenli Memory için
-#include <Ed25519.h> // Kripto
-
+#include <Servo.h>
 
 const int PRIVATE_KEY_SIZE = 32;
 const int PUBLIC_KEY_SIZE = 32;
-
-// EEPROM adresleri
 const int PRIVATE_KEY_ADDR = 0;
 const int PUBLIC_KEY_ADDR = PRIVATE_KEY_ADDR + PRIVATE_KEY_SIZE;
 
 uint8_t privateKey[PRIVATE_KEY_SIZE];
 uint8_t publicKey[PUBLIC_KEY_SIZE];
+Servo myservo;
 
-
- int pos;
-
-
- void clearEEPROM() {
-    for (int i = 0; i < EEPROM.length(); i++) {
-        EEPROM.write(i, 0xFF);
-    }
-   
-}
- void HandShake(){
+void HandShake() {
   String elsalla = "Public Key: ";
   for (int i = 0; i < PUBLIC_KEY_SIZE; i++) {
-    if (publicKey[i] < 16) { // Eğer bayt değeri 16'dan küçükse (yani tek haneli bir onaltılık değerse) başına bir '0' ekleyin
+    if (publicKey[i] < 16) {
       elsalla += '0';
     }
     elsalla += String(publicKey[i], HEX);
   }
-  Serial.println(elsalla); }
+  Serial.println(elsalla);
+}
 
-void setup()
-{
-//clearEEPROM();
-
- // EEPROM'da özel anahtarın olup olmadığını kontrol et
+void setup() {
   bool keyExists = true;
   for (int i = 0; i < PRIVATE_KEY_SIZE; i++) {
     if (EEPROM.read(PRIVATE_KEY_ADDR + i) == 0xFF) {
@@ -92,11 +32,8 @@ void setup()
   }
 
   if (!keyExists) {
-    // Özel anahtar ve halka açık anahtar oluşturma
     Ed25519::generatePrivateKey(privateKey);
     Ed25519::derivePublicKey(publicKey, privateKey);
-
-    // Özel anahtarı ve halka açık anahtarı EEPROM'a yazma
     for (int i = 0; i < PRIVATE_KEY_SIZE; i++) {
       EEPROM.write(PRIVATE_KEY_ADDR + i, privateKey[i]);
     }
@@ -104,95 +41,55 @@ void setup()
       EEPROM.write(PUBLIC_KEY_ADDR + i, publicKey[i]);
     }
   } else {
-    // Özel anahtarı ve halka açık anahtarı EEPROM'dan okuma
-    
     for (int i = 0; i < PRIVATE_KEY_SIZE; i++) {
       privateKey[i] = EEPROM.read(PRIVATE_KEY_ADDR + i);
-     
     }
     for (int i = 0; i < PUBLIC_KEY_SIZE; i++) {
       publicKey[i] = EEPROM.read(PUBLIC_KEY_ADDR + i);
     }
   }
 
-
- 
-  myservo.attach(5); // attach servo signal wire to pin 9
-  //Setup usb serial connection to computer
+  myservo.attach(5);
   Serial.begin(9600);
-
 }
 
-void loop()
-{
+void loop() {
   if (Serial.available() > 0) {
-    char command = Serial.read(); // Komut tanımlayıcısını oku
-
-    if (command == 'H') { // Public Key Görüntüleme
-      
+    char command = Serial.read();
+    if (command == 'H') {
       HandShake();
-         
-        
-      
     }
-    if (command == 'S') { // Servo motor komutu
+    if (command == 'S') {
       delay(50);
-      String posStr = ""; // Pozisyon değerini tutacak olan string
-
-
-
-     while (Serial.available()) { // Tüm karakterleri okuyana kadar döngüyü sürdür
+      String posStr = "";
+      while (Serial.available()) {
         char c = Serial.read();
-        if (c >= '0' && c <= '9') { // Eğer okunan karakter bir rakamsa
-            posStr += c; // Pozisyon stringine ekle
+        if (c >= '0' && c <= '9') {
+            posStr += c;
         }
-        delay(10); // Karakterler arasında kısa bir gecikme ekleyin
+        delay(10);
       }
-      pos = posStr.toInt(); // Stringi tam sayıya dönüştür
-      myservo.write(pos); // Servo motorun pozisyonunu ayarla
-
-
-
-
+      int pos = posStr.toInt();
+      myservo.write(pos);
     } 
-    
-    if (command == 'M') { // Imzalama isteği
+    if (command == 'M') {
       String mesaj;
       delay(50);
-      while (Serial.available()){
-      char c=Serial.read();
-      mesaj+=c;
-      
-      delay(10);
+      while (Serial.available()) {
+        char c = Serial.read();
+        mesaj += c;
+        delay(10);
       }
-    
-    
       uint8_t signature[64];
       Ed25519::sign(signature, privateKey, publicKey, mesaj.c_str(), mesaj.length());
-
-      // İmzayı geri gönder
-      String signatureString ; // İmzanın onaltılık değerlerini saklamak için bir String değişkeni oluştur
-
+      String signatureString;
       for (int i = 0; i < 64; i++) {
-       if (signature[i] < 16) { // Eğer bayt değeri 16'dan küçükse (yani tek haneli bir onaltılık değerse) başına bir '0' ekleyin
+        if (signature[i] < 16) {
           signatureString += '0';
         }
-       signatureString  += String(signature[i], HEX);
-        
+        signatureString += String(signature[i], HEX);
       }
-
-      Serial.print(signatureString); // Oluşturulan onaltılık String değerini seri port üzerinden yazdır
-
-      //for (int i = 0; i < 64; i++) {
-     //   Serial.print(signature[i], HEX);
-      //}
-      //Serial.println();
-      
-      
+      Serial.print("İmza sonucu:" + signatureString);
     }
-
- 
-  
   }
 }
-
